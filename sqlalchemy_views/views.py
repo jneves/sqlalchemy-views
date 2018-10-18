@@ -23,16 +23,19 @@ class CreateView(_CreateDropBase):
     or_replace: boolean
         If True, this definition will replace an existing definition.
         Otherwise, an exception will be raised if the view exists.
+    materialized: boolean
+        If True, create a materialized view.
     """
 
     __visit_name__ = "create_view"
 
     def __init__(self, element, selectable, on=None, bind=None,
-                 or_replace=False):
+                 or_replace=False, materialized=False):
         super(CreateView, self).__init__(element, on=on, bind=bind)
         self.columns = [CreateColumn(column) for column in element.columns]
         self.selectable = selectable
         self.or_replace = or_replace
+        self.materialized = materialized
 
 
 @compiles(CreateView)
@@ -42,6 +45,8 @@ def visit_create_view(create, compiler, **kw):
     text = "\nCREATE "
     if create.or_replace:
         text += "OR REPLACE "
+    if create.materialized:
+        text =+ "MATERIALIZED "
     text += "VIEW %s " % preparer.format_table(view)
     if create.columns:
         column_names = [preparer.format_column(col.element)
@@ -81,7 +86,10 @@ class DropView(_CreateDropBase):
 
 @compiles(DropView)
 def compile(drop, compiler, **kw):
-    text = "\nDROP VIEW "
+    text = "\nDROP "
+    if drop.materialized:
+        text += "MATERIALIZED"
+    text += "VIEW "
     if drop.if_exists:
         text += "IF EXISTS "
     text += compiler.preparer.format_table(drop.element)
